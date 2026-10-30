@@ -1,0 +1,801 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Turn90 Resource Finder</title>
+<meta name="description" content="Turn90 reentry resource guide: housing, jobs, health, and support near you in South Carolina.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:#FBF6EE;}
+  body{font-family:'Atkinson Hyperlegible', system-ui, -apple-system, sans-serif;-webkit-font-smoothing:antialiased;}
+  a{color:#1C566E;text-decoration:none;}
+  a:hover{color:#123F51;}
+  button{font-family:inherit;}
+  #app-shell{max-width:480px;margin:0 auto;min-height:100vh;background:#FBF6EE;display:flex;flex-direction:column;}
+  #topbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:4px;padding:14px 8px;border-bottom:1px solid #E7DDCE;background:#FBF6EE;}
+  #content{flex:1 1 auto;padding-bottom:16px;}
+  input:focus, button:focus-visible, a:focus-visible {outline:2px solid #1C566E; outline-offset:2px;}
+</style>
+</head>
+<body>
+<div id="app-shell">
+  <div id="topbar" hidden></div>
+  <div id="content"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------
+  // Static reference data (geography + app taxonomy — rarely changes)
+  // ---------------------------------------------------------------------
+  var COUNTY_PATH_DATA = [
+  { name: "Allendale", d: "M160.4 185.3 L149.5 192.7 L147.7 201.2 L137.6 209.2 L137.6 209.1 L136.3 203.7 L130.9 190.7 L131.3 189.4 L131.5 187.7 L131.1 186.7 L130.1 185.5 L128.0 183.7 L122.7 179.7 L127.9 174.2 L140.5 178.4 L152.6 177.5 L160.4 185.3 Z" },
+  { name: "Bamberg", d: "M150.7 150.3 L169.9 161.5 L180.5 172.6 L160.4 185.3 L152.6 177.5 L150.1 174.0 L150.5 150.3 L150.6 150.3 L150.7 150.3 Z" },
+  { name: "Clarendon", d: "M199.2 132.9 L203.1 127.0 L209.2 126.9 L208.8 122.4 L218.8 119.4 L238.7 107.3 L240.8 112.4 L245.7 112.5 L237.2 122.4 L238.7 126.4 L229.7 145.4 L221.2 149.9 L211.9 151.1 L201.8 140.2 L199.2 132.9 Z" },
+  { name: "Fairfield", d: "M178.5 79.9 L159.5 84.6 L153.6 87.9 L143.8 82.4 L136.3 60.8 L136.5 60.0 L136.2 58.3 L136.0 57.8 L136.3 55.5 L136.6 54.6 L136.4 54.2 L169.8 56.5 L174.9 56.6 L174.8 63.9 L182.5 70.7 L178.5 79.9 Z" },
+  { name: "Hampton", d: "M178.5 212.7 L177.8 213.0 L175.4 216.4 L173.1 219.7 L165.2 208.5 L146.0 226.2 L143.7 225.0 L143.0 224.8 L141.6 224.1 L138.7 221.9 L137.1 220.0 L136.7 219.0 L136.7 218.6 L136.9 218.4 L137.6 209.2 L147.7 201.2 L149.5 192.7 L160.4 185.3 L173.3 201.8 L178.5 212.7 Z" },
+  { name: "Jasper", d: "M174.9 265.7 L172.9 268.0 L173.8 268.7 L174.3 269.5 L165.9 266.3 L163.2 265.3 L161.9 265.0 L158.2 262.8 L158.0 262.5 L157.6 258.7 L157.4 253.2 L157.2 249.0 L157.7 248.2 L157.6 246.5 L156.7 243.5 L156.3 242.8 L154.4 241.2 L152.2 232.8 L146.8 226.7 L146.0 226.2 L165.2 208.5 L173.1 219.7 L175.4 216.4 L178.3 237.5 L170.8 247.0 L165.8 246.5 L165.1 251.9 L174.9 265.7 Z" },
+  { name: "Orangeburg", d: "M150.7 150.3 L150.6 150.3 L150.5 150.3 L139.9 146.0 L139.8 146.0 L153.0 132.2 L160.1 128.6 L163.2 127.6 L170.5 135.9 L174.8 135.0 L179.8 136.3 L190.3 147.6 L197.9 139.6 L201.8 140.2 L211.9 151.1 L221.2 149.9 L219.0 162.2 L211.3 165.7 L202.7 163.8 L201.4 159.2 L181.1 172.2 L181.0 172.2 L180.9 172.3 L180.8 172.4 L180.7 172.6 L180.5 172.6 L169.9 161.5 L150.7 150.3 Z" },
+  { name: "Saluda", d: "M125.9 113.1 L120.2 118.5 L107.1 114.1 L103.0 104.8 L95.0 106.0 L104.8 91.2 L105.4 87.5 L114.5 86.8 L128.2 95.8 L132.9 96.2 L125.9 113.1 Z" },
+  { name: "Darlington", d: "M231.8 95.4 L227.6 91.8 L228.9 86.0 L224.4 71.7 L216.5 71.8 L216.6 71.8 L216.6 71.7 L216.5 71.7 L233.7 60.9 L245.1 61.0 L248.9 57.6 L256.6 61.5 L254.5 65.7 L259.2 68.7 L261.1 76.8 L245.2 85.4 L236.9 91.8 L231.8 95.4 Z" },
+  { name: "Dorchester", d: "M211.3 165.7 L215.8 176.5 L217.1 177.5 L226.4 185.8 L231.3 193.7 L224.6 200.7 L225.4 201.1 L225.7 202.0 L226.4 203.0 L208.5 199.6 L209.3 183.9 L192.9 182.0 L186.8 174.3 L181.1 172.2 L201.4 159.2 L202.7 163.8 L211.3 165.7 Z" },
+  { name: "Edgefield", d: "M120.2 118.5 L94.7 142.4 L94.6 142.6 L93.6 141.3 L92.3 139.7 L90.7 138.8 L88.6 137.8 L87.3 137.5 L88.8 133.8 L83.8 129.0 L83.4 122.6 L87.5 117.2 L84.6 108.7 L92.3 106.7 L95.0 106.0 L103.0 104.8 L107.1 114.1 L120.2 118.5 Z" },
+  { name: "Kershaw", d: "M203.0 88.4 L196.1 94.1 L194.2 94.1 L193.2 93.5 L193.4 94.3 L192.0 94.4 L191.7 94.6 L191.2 94.8 L190.4 95.2 L190.3 95.5 L189.3 95.6 L189.1 95.5 L188.6 95.8 L187.9 95.8 L186.1 96.9 L175.4 87.3 L178.5 79.9 L182.5 70.7 L174.8 63.9 L184.4 56.9 L184.6 62.0 L199.9 59.5 L198.0 55.2 L208.0 50.6 L213.7 60.2 L216.5 71.7 L216.6 71.7 L216.6 71.8 L216.5 71.8 L207.1 77.8 L203.0 88.4 Z" },
+  { name: "Lee", d: "M217.9 99.8 L217.2 99.6 L214.2 95.9 L202.9 93.2 L203.0 88.4 L207.1 77.8 L216.5 71.8 L224.4 71.7 L228.9 86.0 L227.6 91.8 L231.8 95.4 L236.9 98.7 L224.2 106.8 L217.9 99.8 Z" },
+  { name: "McCormick", d: "M92.3 106.7 L84.6 108.7 L87.5 117.2 L83.4 122.6 L83.8 129.0 L88.8 133.8 L87.3 137.5 L86.8 137.4 L86.5 137.5 L86.0 137.4 L82.9 135.3 L81.7 134.1 L80.1 129.4 L78.1 123.7 L74.3 119.5 L72.6 118.0 L67.0 114.1 L66.7 114.1 L65.7 114.3 L65.2 114.1 L55.7 106.5 L53.4 101.7 L58.1 96.6 L72.5 97.3 L73.9 105.1 L78.3 101.1 L81.4 104.5 L92.4 104.1 L92.3 106.7 Z" },
+  { name: "Newberry", d: "M142.3 86.0 L135.3 91.7 L138.8 95.9 L132.9 96.2 L128.2 95.8 L114.5 86.8 L105.4 87.5 L104.8 91.2 L99.5 85.5 L102.9 77.3 L110.9 71.7 L120.8 57.4 L128.0 65.0 L136.3 60.8 L143.8 82.4 L141.8 85.3 L142.3 86.0 Z" },
+  { name: "Oconee", d: "M32.2 13.1 L30.9 20.3 L32.0 39.7 L36.2 49.8 L25.5 62.1 L25.4 62.1 L25.2 62.5 L24.4 62.5 L22.5 61.7 L21.2 60.9 L19.8 59.9 L18.7 58.9 L17.4 57.4 L12.9 52.5 L12.8 51.9 L13.1 51.8 L7.9 49.7 L4.3 47.3 L1.0 44.4 L0.1 43.2 L0.1 42.2 L0.1 42.1 L0.0 42.0 L0.9 39.8 L2.0 35.8 L4.9 33.0 L6.0 32.1 L7.7 28.2 L14.8 24.3 L17.2 17.8 L24.3 15.6 L32.2 13.1 Z" },
+  { name: "Richland", d: "M184.1 122.9 L172.1 118.5 L165.4 112.9 L162.0 102.3 L155.4 96.1 L146.7 94.5 L142.3 86.0 L141.8 85.3 L143.8 82.4 L153.6 87.9 L159.5 84.6 L178.5 79.9 L175.4 87.3 L186.1 96.9 L187.9 95.8 L188.6 95.8 L189.1 95.5 L189.3 95.6 L190.3 95.5 L190.4 95.2 L191.2 94.8 L191.7 94.6 L192.0 94.4 L193.4 94.3 L192.1 115.2 L193.1 124.5 L184.1 122.9 Z" },
+  { name: "Spartanburg", d: "M94.7 46.0 L85.2 36.1 L79.6 30.6 L80.3 1.2 L81.8 1.3 L82.5 1.4 L83.1 1.4 L83.7 1.4 L97.7 2.0 L104.4 2.2 L112.9 23.6 L115.9 25.3 L110.9 31.7 L105.9 52.3 L94.7 46.0 Z" },
+  { name: "Sumter", d: "M217.9 99.8 L224.2 106.8 L236.9 98.7 L244.4 103.7 L238.7 107.3 L218.8 119.4 L208.8 122.4 L209.2 126.9 L203.1 127.0 L199.2 132.9 L193.1 124.5 L192.1 115.2 L193.4 94.3 L193.2 93.5 L194.2 94.1 L196.1 94.1 L203.0 88.4 L202.9 93.2 L214.2 95.9 L217.2 99.6 L217.9 99.8 Z" },
+  { name: "Williamsburg", d: "M284.7 119.8 L284.7 120.1 L284.9 120.5 L284.7 120.6 L285.0 120.9 L285.2 121.4 L278.6 129.1 L276.8 139.0 L269.5 145.4 L259.7 161.7 L254.1 159.6 L238.9 145.1 L229.7 145.4 L238.7 126.4 L237.2 122.4 L245.7 112.5 L251.2 116.7 L272.5 121.8 L284.7 119.8 Z" },
+  { name: "Abbeville", d: "M72.5 97.3 L58.1 96.6 L53.4 101.7 L50.3 95.2 L49.5 94.3 L49.4 94.2 L49.0 94.0 L49.0 93.9 L48.4 92.5 L47.7 91.6 L45.8 90.8 L44.9 90.0 L43.9 87.6 L43.2 85.0 L73.4 61.7 L78.2 68.0 L72.0 73.7 L78.1 84.1 L76.7 93.5 L72.5 97.3 Z" },
+  { name: "Aiken", d: "M129.3 117.5 L136.9 125.5 L153.0 132.2 L139.8 146.0 L139.9 146.0 L139.8 146.0 L129.7 155.2 L112.7 170.8 L111.7 172.3 L106.0 166.6 L102.4 159.5 L101.8 152.9 L98.5 147.8 L97.9 146.8 L95.1 143.2 L95.0 143.2 L94.6 142.6 L94.7 142.4 L120.2 118.5 L125.9 113.1 L126.0 113.6 L126.4 114.2 L126.6 114.4 L127.1 114.6 L127.3 114.6 L127.6 114.7 L128.0 115.3 L127.9 115.6 L128.0 115.8 L128.2 115.9 L128.2 116.2 L128.5 116.5 L128.5 117.0 L129.0 117.2 L129.3 117.4 L129.3 117.5 Z" },
+  { name: "Anderson", d: "M61.2 33.2 L63.5 49.7 L65.9 55.5 L73.4 61.7 L43.2 85.0 L43.1 84.9 L43.0 83.6 L43.0 83.4 L43.1 83.2 L42.2 79.3 L41.4 77.8 L35.6 66.8 L33.8 62.9 L33.8 62.7 L33.2 62.1 L31.8 61.5 L29.2 61.5 L26.4 61.8 L25.5 62.1 L36.2 49.8 L39.8 45.7 L61.2 33.2 Z" },
+  { name: "Calhoun", d: "M165.4 112.9 L172.1 118.5 L184.1 122.9 L193.1 124.5 L199.2 132.9 L201.8 140.2 L197.9 139.6 L190.3 147.6 L179.8 136.3 L174.8 135.0 L170.5 135.9 L163.2 127.6 L171.4 123.5 L162.1 124.2 L165.4 112.9 Z" },
+  { name: "Chester", d: "M132.4 33.0 L173.4 33.1 L176.1 43.7 L173.6 49.1 L174.9 56.6 L169.8 56.5 L136.4 54.2 L132.4 33.0 Z" },
+  { name: "Chesterfield", d: "M216.5 71.7 L213.7 60.2 L208.0 50.6 L197.2 33.4 L202.6 33.4 L205.0 33.4 L205.2 33.5 L206.2 33.5 L206.8 33.5 L207.3 33.5 L207.4 33.5 L208.6 33.6 L214.3 33.7 L229.9 34.0 L230.0 34.0 L231.4 34.0 L231.8 34.0 L233.9 34.1 L235.0 34.1 L242.0 34.3 L246.0 43.8 L252.6 50.6 L248.9 57.6 L245.1 61.0 L233.7 60.9 L216.5 71.7 Z" },
+  { name: "Cherokee", d: "M133.9 31.5 L132.2 29.2 L115.9 25.3 L112.9 23.6 L104.4 2.2 L105.6 2.3 L112.0 2.6 L131.3 3.5 L131.4 3.4 L133.6 3.6 L134.3 3.6 L140.3 3.9 L137.3 13.9 L131.7 15.4 L133.9 31.5 Z" },
+  { name: "Dillon", d: "M268.9 83.1 L262.8 77.4 L275.8 50.0 L282.3 56.4 L284.2 58.4 L284.6 58.9 L284.7 59.1 L293.5 68.2 L294.0 68.7 L294.1 68.8 L296.9 71.6 L297.4 72.2 L302.5 77.3 L298.5 81.2 L280.7 77.2 L273.6 78.3 L268.9 83.1 Z" },
+  { name: "Greenville", d: "M81.9 44.5 L78.9 57.2 L73.4 61.7 L65.9 55.5 L63.5 49.7 L61.2 33.2 L57.6 16.5 L54.0 11.6 L41.6 12.1 L47.0 7.7 L47.1 7.5 L54.4 5.8 L54.6 5.8 L55.0 5.6 L57.7 4.4 L59.0 4.1 L59.0 4.0 L61.9 3.0 L68.4 0.0 L70.7 0.3 L75.2 1.0 L77.4 1.0 L79.3 1.2 L80.3 1.2 L79.6 30.6 L85.2 36.1 L81.9 44.5 Z" },
+  { name: "Greenwood", d: "M104.8 91.2 L95.0 106.0 L92.3 106.7 L92.4 104.1 L81.4 104.5 L78.3 101.1 L73.9 105.1 L72.5 97.3 L76.7 93.5 L78.1 84.1 L72.0 73.7 L78.2 68.0 L83.6 74.7 L99.5 85.5 L104.8 91.2 Z" },
+  { name: "Horry", d: "M307.4 139.0 L300.5 139.1 L294.1 127.7 L283.6 105.3 L298.6 82.8 L298.0 82.2 L298.5 81.2 L302.5 77.3 L327.9 103.0 L328.1 103.2 L332.3 107.5 L340.0 115.4 L339.1 115.6 L336.9 115.9 L330.7 118.2 L327.8 119.7 L323.6 122.4 L320.8 124.5 L317.3 127.7 L311.9 133.3 L307.4 139.0 Z" },
+  { name: "Laurens", d: "M73.4 61.7 L78.9 57.2 L81.9 44.5 L85.2 36.1 L94.7 46.0 L105.9 52.3 L120.8 57.4 L110.9 71.7 L102.9 77.3 L99.5 85.5 L83.6 74.7 L78.2 68.0 L73.4 61.7 Z" },
+  { name: "Marlboro", d: "M255.0 34.4 L258.6 34.4 L258.8 34.4 L258.9 34.4 L262.8 37.3 L262.9 37.5 L267.9 42.3 L268.4 42.8 L270.8 45.2 L270.9 45.3 L272.9 47.2 L273.7 48.0 L274.2 48.7 L274.4 48.8 L274.9 49.2 L275.0 49.3 L275.1 49.3 L275.8 50.0 L262.8 77.4 L262.7 77.2 L262.2 77.3 L262.0 77.2 L261.1 76.8 L259.2 68.7 L254.5 65.7 L256.6 61.5 L248.9 57.6 L252.6 50.6 L246.0 43.8 L242.0 34.3 L252.9 34.3 L253.0 34.3 L254.9 34.4 L255.0 34.4 Z" },
+  { name: "Union", d: "M105.9 52.3 L110.9 31.7 L115.9 25.3 L132.2 29.2 L133.9 31.5 L133.6 32.2 L132.4 33.0 L136.4 54.2 L136.6 54.6 L136.3 55.5 L136.0 57.8 L136.2 58.3 L136.5 60.0 L136.3 60.8 L128.0 65.0 L120.8 57.4 L105.9 52.3 Z" },
+  { name: "Colleton", d: "M203.2 231.3 L197.9 224.4 L190.3 220.5 L189.7 216.0 L178.5 212.7 L173.3 201.8 L160.4 185.3 L180.5 172.6 L180.7 172.6 L180.8 172.4 L180.9 172.3 L181.0 172.2 L181.1 172.2 L186.8 174.3 L192.9 182.0 L209.3 183.9 L208.5 199.6 L205.4 210.7 L209.3 217.5 L207.5 226.1 L212.0 230.0 L219.3 227.5 L217.3 228.7 L213.4 231.9 L213.0 231.8 L212.6 230.8 L211.2 230.4 L210.0 231.2 L209.6 231.8 L209.2 232.1 L207.7 232.5 L207.5 232.4 L207.4 232.1 L207.3 230.8 L207.0 230.2 L205.9 229.7 L205.0 230.3 L204.0 230.4 L203.5 230.3 L203.2 231.3 Z" },
+  { name: "Florence", d: "M269.1 84.1 L267.4 87.9 L271.2 94.5 L273.5 108.0 L284.7 119.8 L272.5 121.8 L251.2 116.7 L245.7 112.5 L240.8 112.4 L238.7 107.3 L244.4 103.7 L236.9 98.7 L231.8 95.4 L236.9 91.8 L245.2 85.4 L261.1 76.8 L262.0 77.2 L262.2 77.3 L262.7 77.2 L262.8 77.4 L268.9 83.1 L269.1 83.6 L269.1 84.1 Z" },
+  { name: "Georgetown", d: "M291.0 128.7 L292.8 127.9 L293.8 127.9 L293.5 127.3 L294.1 127.7 L300.5 139.1 L307.4 139.0 L307.1 139.5 L305.6 142.3 L304.7 143.1 L301.6 146.5 L300.4 148.5 L298.0 153.3 L297.1 155.5 L296.8 157.8 L296.4 159.3 L296.1 159.8 L294.8 166.0 L294.8 167.4 L295.4 170.1 L294.3 172.9 L293.7 173.5 L292.3 174.4 L290.7 176.0 L290.2 177.0 L287.0 178.3 L288.6 176.0 L279.0 171.9 L278.3 170.8 L276.6 169.3 L276.0 169.5 L259.7 161.7 L269.5 145.4 L276.8 139.0 L278.6 129.1 L285.2 121.4 L285.2 121.5 L285.4 121.8 L285.7 122.1 L285.9 122.6 L286.0 122.8 L286.3 123.2 L286.5 123.3 L286.7 123.6 L286.8 123.8 L286.9 123.9 L286.9 124.2 L286.8 124.5 L286.8 124.7 L287.0 124.9 L287.3 125.0 L287.3 125.2 L287.1 125.3 L287.0 125.4 L287.0 125.7 L287.2 126.2 L287.3 126.6 L287.3 126.7 L287.6 126.8 L287.7 126.8 L287.9 126.6 L288.4 126.3 L288.5 126.5 L288.5 126.7 L288.4 126.9 L288.1 127.0 L288.2 127.2 L288.1 127.4 L288.3 127.5 L288.4 127.5 L288.5 127.3 L288.7 127.3 L288.8 127.3 L288.9 127.6 L288.8 127.7 L288.6 127.8 L288.7 127.9 L289.1 127.9 L289.3 128.0 L289.9 127.9 L290.3 127.7 L290.4 127.7 L290.5 127.7 L290.6 127.9 L290.6 128.0 L290.5 128.1 L290.1 128.1 L289.9 128.2 L290.0 128.4 L290.2 128.6 L290.7 128.7 L291.0 128.7 Z" },
+  { name: "Barnwell", d: "M111.7 172.3 L112.7 170.8 L129.7 155.2 L139.8 146.0 L139.9 146.0 L150.5 150.3 L150.1 174.0 L152.6 177.5 L140.5 178.4 L127.9 174.2 L122.7 179.7 L122.4 179.5 L117.0 177.7 L111.7 172.3 Z" },
+  { name: "Beaufort", d: "M178.5 212.7 L189.7 216.0 L190.3 220.5 L197.9 224.4 L203.2 231.3 L203.0 231.9 L202.7 233.3 L203.0 234.5 L203.9 236.4 L205.4 236.5 L206.3 237.6 L206.5 238.4 L206.6 239.4 L206.2 240.6 L205.4 242.7 L204.6 243.9 L204.7 244.8 L204.0 245.4 L200.3 247.1 L198.8 248.1 L198.3 248.5 L196.5 249.3 L194.8 249.2 L193.2 250.4 L191.8 250.8 L190.4 251.4 L189.6 254.1 L188.2 255.4 L185.9 258.8 L184.0 260.6 L181.1 262.1 L179.5 263.1 L178.9 263.2 L178.4 262.8 L178.1 262.9 L177.2 263.1 L176.2 264.0 L174.9 265.7 L165.1 251.9 L165.8 246.5 L170.8 247.0 L178.3 237.5 L175.4 216.4 L177.8 213.0 L178.5 212.7 Z" },
+  { name: "Charleston", d: "M276.0 169.5 L276.6 169.3 L278.3 170.8 L279.0 171.9 L288.6 176.0 L287.0 178.3 L284.3 180.0 L283.7 181.5 L283.9 182.0 L283.6 183.3 L282.1 187.0 L279.0 187.3 L278.1 187.0 L277.6 186.3 L275.0 186.9 L273.4 187.5 L273.0 186.2 L271.7 184.8 L270.7 184.6 L268.2 185.8 L266.5 187.0 L266.1 188.3 L265.1 189.4 L264.7 189.9 L263.9 191.6 L263.9 192.3 L264.3 193.1 L264.7 193.9 L266.2 193.8 L266.5 193.4 L266.9 193.1 L267.1 193.2 L267.3 193.8 L266.9 195.5 L263.0 197.0 L261.3 198.4 L258.4 200.3 L258.1 201.2 L257.9 201.5 L256.7 202.4 L256.9 203.4 L256.2 204.1 L250.3 206.5 L249.7 207.4 L248.2 208.2 L247.6 208.4 L246.3 208.2 L245.9 208.6 L245.8 209.2 L246.2 210.1 L246.1 210.7 L244.8 213.5 L245.0 214.4 L242.9 216.0 L239.1 218.2 L238.7 218.2 L237.8 219.3 L237.5 220.1 L236.9 220.5 L236.2 220.8 L234.3 220.7 L231.5 221.3 L228.3 222.3 L226.4 223.4 L225.1 224.9 L224.8 226.1 L223.6 225.5 L223.2 225.4 L222.4 225.3 L219.5 227.4 L219.3 227.5 L212.0 230.0 L207.5 226.1 L209.3 217.5 L205.4 210.7 L208.5 199.6 L226.4 203.0 L225.7 202.0 L225.4 201.1 L224.6 200.7 L231.3 193.7 L226.4 185.8 L233.0 187.6 L236.1 196.1 L240.5 195.4 L242.0 202.5 L247.1 198.3 L262.1 177.1 L270.9 175.0 L276.0 169.5 Z" },
+  { name: "Lancaster", d: "M172.9 11.4 L177.5 17.7 L179.9 21.0 L181.6 23.3 L180.6 32.7 L181.9 33.2 L182.4 33.2 L191.2 33.3 L191.4 33.3 L192.7 33.3 L193.0 33.3 L197.2 33.4 L208.0 50.6 L198.0 55.2 L199.9 59.5 L184.6 62.0 L184.4 56.9 L174.8 63.9 L174.9 56.6 L173.6 49.1 L176.1 43.7 L173.4 33.1 L175.5 22.0 L172.9 11.4 Z" },
+  { name: "York", d: "M163.9 8.6 L163.7 9.1 L163.0 9.3 L162.6 9.7 L162.2 10.6 L162.1 11.7 L162.2 12.6 L163.3 14.1 L169.2 10.0 L170.8 8.8 L172.8 11.4 L172.9 11.4 L175.5 22.0 L173.4 33.1 L132.4 33.0 L133.6 32.2 L133.9 31.5 L131.7 15.4 L137.3 13.9 L140.3 3.9 L143.1 4.0 L147.2 4.2 L149.2 4.3 L149.3 4.3 L159.9 4.9 L163.2 5.3 L163.2 5.5 L163.9 8.6 Z" },
+  { name: "Lexington", d: "M142.3 86.0 L146.7 94.5 L155.4 96.1 L162.0 102.3 L165.4 112.9 L162.1 124.2 L171.4 123.5 L163.2 127.6 L160.1 128.6 L153.0 132.2 L136.9 125.5 L129.3 117.5 L129.3 117.4 L129.0 117.2 L128.5 117.0 L128.5 116.5 L128.2 116.2 L128.2 115.9 L128.0 115.8 L127.9 115.6 L128.0 115.3 L127.6 114.7 L127.3 114.6 L127.1 114.6 L126.6 114.4 L126.4 114.2 L126.0 113.6 L125.9 113.1 L132.9 96.2 L138.8 95.9 L135.3 91.7 L142.3 86.0 Z" },
+  { name: "Marion", d: "M269.1 84.1 L269.1 83.6 L268.9 83.1 L273.6 78.3 L280.7 77.2 L298.5 81.2 L298.0 82.2 L298.6 82.8 L283.6 105.3 L294.1 127.7 L293.5 127.3 L293.8 127.9 L292.8 127.9 L291.0 128.7 L290.7 128.7 L290.2 128.6 L290.0 128.4 L289.9 128.2 L290.1 128.1 L290.5 128.1 L290.6 128.0 L290.6 127.9 L290.5 127.7 L290.4 127.7 L290.3 127.7 L289.9 127.9 L289.3 128.0 L289.1 127.9 L288.7 127.9 L288.6 127.8 L288.8 127.7 L288.9 127.6 L288.8 127.3 L288.7 127.3 L288.5 127.3 L288.4 127.5 L288.3 127.5 L288.1 127.4 L288.2 127.2 L288.1 127.0 L288.4 126.9 L288.5 126.7 L288.5 126.5 L288.4 126.3 L287.9 126.6 L287.7 126.8 L287.6 126.8 L287.3 126.7 L287.3 126.6 L287.2 126.2 L287.0 125.7 L287.0 125.4 L287.1 125.3 L287.3 125.2 L287.3 125.0 L287.0 124.9 L286.8 124.7 L286.8 124.5 L286.9 124.2 L286.9 123.9 L286.8 123.8 L286.7 123.6 L286.5 123.3 L286.3 123.2 L286.0 122.8 L285.9 122.6 L285.7 122.1 L285.4 121.8 L285.2 121.5 L285.2 121.4 L285.0 120.9 L284.7 120.6 L284.9 120.5 L284.7 120.1 L284.7 119.8 L273.5 108.0 L271.2 94.5 L267.4 87.9 L269.1 84.1 Z" },
+  { name: "Pickens", d: "M41.6 12.1 L54.0 11.6 L57.6 16.5 L61.2 33.2 L39.8 45.7 L36.2 49.8 L32.0 39.7 L30.9 20.3 L32.2 13.1 L40.4 10.7 L40.6 11.3 L40.5 11.6 L40.4 12.0 L40.3 12.2 L41.6 12.1 Z" },
+  { name: "Berkeley", d: "M276.0 169.5 L270.9 175.0 L262.1 177.1 L247.1 198.3 L242.0 202.5 L240.5 195.4 L236.1 196.1 L233.0 187.6 L226.4 185.8 L217.1 177.5 L215.8 176.5 L211.3 165.7 L219.0 162.2 L221.2 149.9 L229.7 145.4 L238.9 145.1 L254.1 159.6 L259.7 161.7 L276.0 169.5 Z" },
+];
+  var ZIP_COUNTY = {
+  "29001":"Clarendon", "29003":"Bamberg", "29006":"Lexington", "29009":"Kershaw", "29010":"Lee", "29014":"Chester", "29015":"Fairfield", "29016":"Richland", "29018":"Orangeburg", "29020":"Kershaw",
+  "29030":"Calhoun", "29031":"Union", "29032":"Kershaw", "29033":"Lexington", "29036":"Lexington", "29037":"Newberry", "29038":"Orangeburg", "29039":"Orangeburg", "29040":"Sumter", "29042":"Bamberg",
+  "29044":"Richland", "29045":"Kershaw", "29046":"Lee", "29047":"Orangeburg", "29048":"Orangeburg", "29051":"Sumter", "29052":"Richland", "29053":"Lexington", "29054":"Lexington", "29055":"Chester",
+  "29056":"Williamsburg", "29058":"Lancaster", "29059":"Orangeburg", "29061":"Richland", "29062":"Sumter", "29063":"Richland", "29065":"Fairfield", "29067":"Lancaster", "29069":"Darlington", "29070":"Lexington",
+  "29072":"Lexington", "29073":"Lexington", "29074":"Kershaw", "29075":"Newberry", "29078":"Kershaw", "29079":"Darlington", "29080":"Lee", "29081":"Bamberg", "29082":"Colleton", "290HH":"Calhoun",
+  "290XX":"Richland", "29101":"Chesterfield", "29102":"Clarendon", "29104":"Sumter", "29105":"Aiken", "29107":"Orangeburg", "29108":"Newberry", "29111":"Clarendon", "29112":"Orangeburg", "29113":"Orangeburg",
+  "29114":"Florence", "29115":"Orangeburg", "29118":"Orangeburg", "29122":"Newberry", "29123":"Lexington", "29124":"Aiken", "29125":"Sumter", "29126":"Newberry", "29127":"Newberry", "29128":"Sumter",
+  "29129":"Aiken", "29130":"Fairfield", "29132":"Fairfield", "29133":"Orangeburg", "29135":"Calhoun", "29137":"Aiken", "29138":"Saluda", "29142":"Orangeburg", "29145":"Newberry", "29146":"Orangeburg",
+  "29148":"Clarendon", "29150":"Sumter", "29152":"Sumter", "29153":"Sumter", "29154":"Sumter", "29160":"Lexington", "29161":"Florence", "29162":"Clarendon", "29163":"Orangeburg", "29164":"Aiken",
+  "29166":"Saluda", "29168":"Sumter", "29169":"Lexington", "29170":"Lexington", "29172":"Lexington", "29175":"Kershaw", "29177":"Richland", "29178":"Newberry", "29180":"Fairfield", "291HH":"Chesterfield",
+  "291XX":"Calhoun", "29201":"Richland", "29202":"Richland", "29203":"Richland", "29204":"Richland", "29205":"Richland", "29206":"Richland", "29207":"Richland", "29209":"Richland", "29210":"Richland",
+  "29212":"Lexington", "29223":"Richland", "29229":"Richland", "292HH":"Lexington", "292XX":"Richland", "29301":"Spartanburg", "29302":"Spartanburg", "29303":"Spartanburg", "29306":"Spartanburg", "29307":"Spartanburg",
+  "29316":"Spartanburg", "29320":"Spartanburg", "29321":"Union", "29322":"Spartanburg", "29323":"Spartanburg", "29325":"Laurens", "29330":"Spartanburg", "29332":"Laurens", "29334":"Spartanburg", "29335":"Spartanburg",
+  "29338":"Spartanburg", "29340":"Cherokee", "29341":"Cherokee", "29349":"Spartanburg", "29351":"Laurens", "29353":"Union", "29355":"Newberry", "29356":"Spartanburg", "29360":"Laurens", "29364":"Union",
+  "29365":"Spartanburg", "29369":"Spartanburg", "29370":"Laurens", "29372":"Spartanburg", "29373":"Spartanburg", "29374":"Spartanburg", "29375":"Spartanburg", "29376":"Spartanburg", "29377":"Spartanburg", "29379":"Union",
+  "29384":"Laurens", "29385":"Spartanburg", "29388":"Spartanburg", "293HH":"Cherokee", "29401":"Charleston", "29403":"Charleston", "29404":"Charleston", "29405":"Charleston", "29406":"Charleston", "29407":"Charleston",
+  "29412":"Charleston", "29414":"Charleston", "29418":"Charleston", "29420":"Dorchester", "29423":"Charleston", "29426":"Charleston", "29429":"Charleston", "29430":"Berkeley", "29431":"Berkeley", "29432":"Orangeburg",
+  "29434":"Berkeley", "29435":"Colleton", "29436":"Berkeley", "29437":"Dorchester", "29438":"Charleston", "29439":"Charleston", "29440":"Georgetown", "29445":"Berkeley", "29446":"Colleton", "29448":"Dorchester",
+  "29449":"Charleston", "29450":"Berkeley", "29451":"Charleston", "29452":"Colleton", "29453":"Berkeley", "29455":"Charleston", "29456":"Berkeley", "29458":"Charleston", "29461":"Berkeley", "29464":"Charleston",
+  "29466":"Charleston", "29468":"Berkeley", "29469":"Berkeley", "29470":"Charleston", "29471":"Dorchester", "29472":"Dorchester", "29474":"Colleton", "29475":"Colleton", "29477":"Dorchester", "29479":"Berkeley",
+  "29481":"Colleton", "29482":"Charleston", "29483":"Dorchester", "29485":"Dorchester", "29487":"Charleston", "29488":"Colleton", "29492":"Berkeley", "29493":"Colleton", "294HH":"Berkeley", "294XX":"Berkeley",
+  "29501":"Florence", "29505":"Florence", "29506":"Florence", "29510":"Georgetown", "29511":"Horry", "29512":"Marlboro", "29516":"Marlboro", "29518":"Williamsburg", "29519":"Marion", "29520":"Chesterfield",
+  "29525":"Marlboro", "29526":"Horry", "29527":"Horry", "29530":"Florence", "29532":"Darlington", "29536":"Dillon", "29540":"Darlington", "29541":"Florence", "29543":"Dillon", "29544":"Horry",
+  "29545":"Horry", "29546":"Marion", "29547":"Dillon", "29550":"Darlington", "29554":"Williamsburg", "29555":"Florence", "29556":"Williamsburg", "29560":"Florence", "29563":"Dillon", "29564":"Williamsburg",
+  "29565":"Dillon", "29566":"Horry", "29567":"Dillon", "29568":"Horry", "29569":"Horry", "29570":"Marlboro", "29571":"Marion", "29572":"Horry", "29574":"Marion", "29575":"Horry",
+  "29576":"Horry", "29577":"Horry", "29579":"Horry", "29580":"Williamsburg", "29581":"Horry", "29582":"Horry", "29583":"Florence", "29584":"Chesterfield", "29585":"Georgetown", "29589":"Marion",
+  "29590":"Williamsburg", "29591":"Florence", "29592":"Dillon", "29593":"Darlington", "29594":"Marlboro", "29596":"Marlboro", "295HH":"Chesterfield", "295XX":"Williamsburg", "29601":"Greenville", "29605":"Greenville",
+  "29607":"Greenville", "29609":"Greenville", "29611":"Greenville", "29615":"Greenville", "29617":"Greenville", "29620":"Abbeville", "29621":"Anderson", "29624":"Anderson", "29625":"Anderson", "29626":"Anderson",
+  "29627":"Anderson", "29628":"Abbeville", "29630":"Pickens", "29631":"Pickens", "29635":"Greenville", "29638":"Abbeville", "29639":"Abbeville", "29640":"Pickens", "29642":"Pickens", "29643":"Oconee",
+  "29644":"Greenville", "29645":"Laurens", "29646":"Greenwood", "29649":"Greenwood", "29650":"Greenville", "29651":"Greenville", "29653":"Greenwood", "29654":"Anderson", "29655":"Anderson", "29656":"Anderson",
+  "29657":"Pickens", "29658":"Oconee", "29659":"Abbeville", "29661":"Greenville", "29662":"Greenville", "29664":"Oconee", "29665":"Oconee", "29666":"Greenwood", "29667":"Pickens", "29669":"Anderson",
+  "29670":"Anderson", "29671":"Pickens", "29672":"Oconee", "29673":"Greenville", "29676":"Oconee", "29677":"Anderson", "29678":"Oconee", "29680":"Greenville", "29681":"Greenville", "29682":"Pickens",
+  "29683":"Greenville", "29684":"Anderson", "29685":"Pickens", "29686":"Oconee", "29687":"Greenville", "29688":"Greenville", "29689":"Anderson", "29690":"Greenville", "29691":"Oconee", "29692":"Greenwood",
+  "29693":"Oconee", "29696":"Oconee", "29697":"Anderson", "296HH":"Abbeville", "29702":"Cherokee", "29704":"York", "29706":"Chester", "29708":"York", "29709":"Chesterfield", "29710":"York",
+  "29712":"Chester", "29714":"Chester", "29715":"York", "29717":"York", "29718":"Chesterfield", "29720":"Lancaster", "29724":"Chester", "29726":"York", "29727":"Chesterfield", "29728":"Chesterfield",
+  "29729":"Chester", "29730":"York", "29732":"York", "29741":"Chesterfield", "29742":"York", "29743":"York", "29745":"York", "297HH":"Cherokee", "29801":"Aiken", "29803":"Aiken",
+  "29805":"Aiken", "29809":"Aiken", "29810":"Allendale", "29812":"Barnwell", "29816":"Aiken", "29817":"Barnwell", "29819":"Greenwood", "29821":"McCormick", "29822":"Aiken", "29824":"Edgefield",
+  "29826":"Barnwell", "29827":"Allendale", "29828":"Aiken", "29829":"Aiken", "29831":"Aiken", "29832":"Edgefield", "29834":"Aiken", "29835":"McCormick", "29836":"Allendale", "29838":"McCormick",
+  "29840":"McCormick", "29841":"Aiken", "29842":"Aiken", "29843":"Bamberg", "29844":"McCormick", "29845":"McCormick", "29846":"Allendale", "29847":"Edgefield", "29848":"Greenwood", "29849":"Allendale",
+  "29850":"Aiken", "29851":"Aiken", "29853":"Barnwell", "29856":"Aiken", "29860":"Edgefield", "298HH":"Aiken", "298XX":"Aiken", "29902":"Beaufort", "29906":"Beaufort", "29910":"Beaufort",
+  "29911":"Hampton", "29916":"Hampton", "29918":"Hampton", "29920":"Beaufort", "29921":"Hampton", "29922":"Jasper", "29923":"Hampton", "29924":"Hampton", "29926":"Beaufort", "29927":"Jasper",
+  "29928":"Beaufort", "29929":"Colleton", "29932":"Hampton", "29934":"Jasper", "29935":"Beaufort", "29936":"Jasper", "29939":"Hampton", "29940":"Beaufort", "29941":"Beaufort", "29943":"Jasper",
+  "29944":"Hampton", "29945":"Colleton", "299HH":"Beaufort", "299XX":"Jasper"
+};
+  var CATEGORY_ORDER = ["Housing", "Jobs & Job Training", "Education & GED", "Healthcare", "Mental Health & Recovery", "Legal Help & ID", "Food, Money & Basic Needs", "Family & Parenting", "Transportation", "General Reentry Support"];
+  var STORAGE_KEY = "turn90_saved_resource_ids";
+  var TURN90_TEL = "tel:+18432974980,,,,1";
+
+  // The resource database itself lives in its own file (resources.json) so it
+  // can be updated independently of this app file — just replace that one
+  // file on the server, no code changes needed.
+  var ALL_RESOURCES = [];
+  var DATA_UPDATED = null; // 'YYYY-MM-DD', stored inside resources.json
+
+  // ---------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------
+  var state = {
+    screen: "landing",
+    county: null,
+    category: null,
+    resourceId: null,
+    detailFrom: null,
+    savedIds: [],
+    zipValue: "",
+    zipError: null,
+    showFilters: false,
+    filterGender: null,
+    filterAge: null,
+    filterHideSexOffense: false,
+    dataStatus: "loading", // "loading" | "ready" | "error"
+  };
+
+  function loadSavedIds() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) { return parsed; }
+      }
+    } catch (err) {}
+    return [];
+  }
+
+  function persistSavedIds(ids) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(ids)); } catch (err) {}
+  }
+
+  // ---------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------
+  function goFindResources() { state.screen = "county"; render(); }
+  function goSaved() { state.screen = "saved"; render(); }
+  function goPrograms() { state.screen = "programs"; render(); }
+
+  function goToCounty(county) {
+    state.county = county;
+    state.screen = "category";
+    state.zipError = null;
+    render();
+  }
+
+  function submitZip() {
+    var raw = (state.zipValue || "").trim();
+    var county = ZIP_COUNTY[raw];
+    if (!county) {
+      state.zipError = "We couldn't find that ZIP code. Try again, or choose your county on the map below.";
+      render();
+      return;
+    }
+    goToCounty(county);
+  }
+
+  function selectCategory(category) { state.category = category; state.screen = "list"; render(); }
+  function openDetail(id, from) { state.resourceId = id; state.detailFrom = from; state.screen = "detail"; render(); }
+
+  function back() {
+    var screen = state.screen;
+    if (screen === "county") { state.screen = "landing"; render(); return; }
+    if (screen === "category") { state.screen = "county"; render(); return; }
+    if (screen === "list") { state.screen = "category"; render(); return; }
+    if (screen === "detail") { state.screen = state.detailFrom || "list"; render(); return; }
+    if (screen === "saved") { state.screen = "landing"; render(); return; }
+    if (screen === "programs") { state.screen = "landing"; render(); return; }
+    state.screen = "landing";
+    render();
+  }
+
+  function toggleSave(id) {
+    var idx = state.savedIds.indexOf(id);
+    if (idx === -1) { state.savedIds.push(id); } else { state.savedIds.splice(idx, 1); }
+    persistSavedIds(state.savedIds);
+    render();
+  }
+
+  function toggleFilterPanel() { state.showFilters = !state.showFilters; render(); }
+  function setGenderFilter(g) { state.filterGender = g; render(); }
+  function setAgeFilter(a) { state.filterAge = a; render(); }
+  function toggleSexOffenseFilter() { state.filterHideSexOffense = !state.filterHideSexOffense; render(); }
+  function clearFilters() { state.filterGender = null; state.filterAge = null; state.filterHideSexOffense = false; render(); }
+  function backToCategory() { state.screen = "category"; render(); }
+
+  // ---------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------
+  function esc(s) {
+    if (s === null || s === undefined) { return ""; }
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function formatUpdated(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+    if (!m) { return ""; }
+    var months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    var mi = parseInt(m[2], 10) - 1;
+    if (mi < 0 || mi > 11) { return ""; }
+    return months[mi] + " " + parseInt(m[3], 10) + ", " + m[1];
+  }
+
+  function isSaved(id) { return state.savedIds.indexOf(id) !== -1; }
+
+  var CALL_ICON = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+  var PIN_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A7A68" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+  var CLOCK_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A7A68" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/></svg>';
+  var BOOKMARK_ICON = function (filled) {
+    return '<svg width="20" height="20" viewBox="0 0 24 24"><path d="M6 3.5C6 2.94772 6.44772 2.5 7 2.5H17C17.5523 2.5 18 2.94772 18 3.5V20.5L12 16.5L6 20.5V3.5Z" stroke="#1C566E" stroke-width="2" stroke-linejoin="round" fill="' + (filled ? "#1C566E" : "none") + '"/></svg>';
+  };
+
+  function buildItemData(r, from) {
+    // Listings that take referrals only through Turn90 never show the program's own
+    // phone number or website; participants are sent to Turn90 instead.
+    var refers = !!r.turn90Refers;
+    var hasPhone = !!r.telHref && !refers;
+    var hasWebsite = !!r.website && !refers;
+    return {
+      refers: refers,
+      id: r.id,
+      name: r.name,
+      phone: r.phone || "",
+      telHref: r.telHref || "",
+      hasPhone: hasPhone,
+      website: r.website || "",
+      hasWebsite: hasWebsite,
+      showWebsiteButton: !hasPhone && hasWebsite && !refers,
+      address: r.address || "",
+      hasAddress: !!r.address,
+      hours: r.hours || "",
+      hasHours: !!r.hours,
+      description: r.shortDescription,
+      costBadge: r.costBadge || "",
+      hasCost: !!r.costBadge,
+      saved: isSaved(r.id),
+      from: from
+    };
+  }
+
+  function renderCardHtml(item) {
+    var out = '<div style="background:#FFFFFF;border:1px solid #E7DDCE;border-radius:16px;padding:16px;margin:0 16px 12px 16px;">';
+    out += '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">';
+    out += '<button data-action="openDetail" data-id="' + esc(item.id) + '" data-from="' + esc(item.from) + '" style="flex:1;text-align:left;background:none;border:none;padding:0;margin:0;font:inherit;cursor:pointer;">';
+    out += '<span style="display:block;font-size:17px;font-weight:700;color:#2A2118;line-height:1.3;">' + esc(item.name) + '</span></button>';
+    out += '<button aria-label="' + (item.saved ? "Remove " + esc(item.name) + " from saved resources" : "Save " + esc(item.name)) + '" data-action="toggleSave" data-id="' + esc(item.id) + '" style="flex-shrink:0;width:44px;height:44px;border-radius:10px;border:none;background:#F7F1E8;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;">' + BOOKMARK_ICON(item.saved) + '</button>';
+    out += '</div>';
+    out += '<p style="margin:8px 0 0 0;font-size:14px;color:#5B4B3B;line-height:1.45;">' + esc(item.description) + '</p>';
+    if (item.hasCost) {
+      out += '<span style="display:inline-block;margin-top:10px;padding:3px 10px;border-radius:999px;background:#E1ECEF;color:#1C566E;font-size:12px;font-weight:700;">' + esc(item.costBadge) + '</span>';
+    }
+    if (item.refers) {
+      out += '<span style="display:inline-block;margin:10px 0 0 ' + (item.hasCost ? '6px' : '0') + ';padding:2px 10px;border-radius:999px;background:#FFFFFF;border:1px solid #1C566E;color:#1C566E;font-size:12px;font-weight:700;">Referral through Turn90</span>';
+    }
+    if (item.hasAddress) {
+      out += '<div style="display:flex;align-items:flex-start;gap:6px;margin-top:12px;">' + PIN_ICON + '<span style="font-size:13px;color:#5B4B3B;line-height:1.4;">' + esc(item.address) + '</span></div>';
+    }
+    if (item.hasHours) {
+      out += '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">' + CLOCK_ICON + '<span style="font-size:13px;color:#5B4B3B;">' + esc(item.hours) + '</span></div>';
+    }
+    if (item.hasPhone) {
+      out += '<a href="' + esc(item.telHref) + '" style="margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;height:48px;background:#1C566E;color:#FFFFFF;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;">' + CALL_ICON + '<span>Call ' + esc(item.phone) + '</span></a>';
+    }
+    if (item.refers) {
+      out += '<a href="' + TURN90_TEL + '" style="margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;height:48px;background:#1C566E;color:#FFFFFF;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;">' + CALL_ICON + '<span>Call Turn90 to be referred</span></a>';
+    }
+    if (item.showWebsiteButton) {
+      out += '<a href="' + esc(item.website) + '" target="_blank" rel="noopener" style="margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;height:48px;background:#FFFFFF;color:#1C566E;border:2px solid #1C566E;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;"><span>Visit Website</span></a>';
+    }
+    out += '</div>';
+    return out;
+  }
+
+  function computeListData() {
+    var result = { items: [], isEmpty: false, emptyMessage: "", emptyIsFilterCause: false, showFilterBar: false };
+    if (!(state.screen === "list" && state.category && state.county)) { return result; }
+    var baseMatches = ALL_RESOURCES.filter(function (r) {
+      return r.counties.indexOf(state.county) !== -1 && r.categories.indexOf(state.category) !== -1;
+    });
+    result.showFilterBar = baseMatches.length > 0;
+    var matches = baseMatches.filter(function (r) {
+      var genderOk = !state.filterGender || !r.genderServed || r.genderServed === state.filterGender;
+      var ageOk = !state.filterAge || !r.ageRequirement || r.ageRequirement === state.filterAge;
+      var sexOk = !state.filterHideSexOffense || !r.excludesSexOffenses;
+      return genderOk && ageOk && sexOk;
+    });
+    matches.sort(function (a, b) {
+      if (a.priority !== b.priority) { return a.priority ? -1 : 1; }
+      return a.name.localeCompare(b.name);
+    });
+    result.items = matches.map(function (r) { return buildItemData(r, "list"); });
+    result.isEmpty = result.items.length === 0;
+    if (result.isEmpty) {
+      if (baseMatches.length > 0) {
+        result.emptyIsFilterCause = true;
+        result.emptyMessage = "No resources match these filters in " + state.county + " County. Try clearing a filter.";
+      } else {
+        result.emptyMessage = "We don't have a listed resource for this yet in " + state.county + " County. Try another category, or call 211 for help finding local support.";
+      }
+    }
+    return result;
+  }
+
+  function computeSavedGroups() {
+    var groups = [];
+    CATEGORY_ORDER.forEach(function (cat) {
+      var items = ALL_RESOURCES.filter(function (r) {
+        return r.categories[0] === cat && isSaved(r.id);
+      }).map(function (r) { return buildItemData(r, "saved"); });
+      if (items.length > 0) { groups.push({ key: cat, label: cat, items: items }); }
+    });
+    return groups;
+  }
+
+  function computeDetail() {
+    if (!(state.screen === "detail" && state.resourceId)) { return null; }
+    var found = ALL_RESOURCES.filter(function (x) { return x.id === state.resourceId; })[0];
+    if (!found) { return null; }
+    var saved = isSaved(found.id);
+    var ctxCategory = state.category || found.categories[0];
+    var ctxCounty = state.county || found.counties[0];
+    return {
+      name: found.name,
+      phone: found.phone || "",
+      telHref: found.telHref || "",
+      refers: !!found.turn90Refers,
+      hasPhone: !!found.telHref && !found.turn90Refers,
+      website: found.website || "",
+      hasWebsite: !!found.website && !found.turn90Refers,
+      address: found.address || "",
+      hasAddress: !!found.address,
+      hours: found.hours || "",
+      hasHours: !!found.hours,
+      description: found.fullDescription,
+      categoryLabel: ctxCategory,
+      countyLabel: ctxCounty + " County",
+      costLabel: found.costLabel || "",
+      hasCost: !!found.costLabel,
+      accessMethods: found.showAccessMethods ? found.accessMethods : [],
+      hasAccess: found.showAccessMethods && found.accessMethods.length > 0,
+      documents: found.documents,
+      hasDocuments: found.documents.length > 0,
+      eligibilityNotes: found.eligibilityNotes,
+      hasEligibility: found.eligibilityNotes.length > 0,
+      id: found.id,
+      saved: saved
+    };
+  }
+
+  // ---------------------------------------------------------------------
+  // Screen renderers
+  // ---------------------------------------------------------------------
+  function renderLanding() {
+    return (
+      '<div style="padding:40px 28px 28px 28px;display:flex;flex-direction:column;min-height:calc(100vh - 0px);box-sizing:border-box;">' +
+      '<div style="font-size:20px;font-weight:800;color:#1C566E;letter-spacing:0.02em;">Turn90</div>' +
+      '<div style="margin-top:4px;font-size:12px;font-weight:700;color:#8A7A68;text-transform:uppercase;letter-spacing:0.08em;">Reentry Resource Guide</div>' +
+      '<div style="margin-top:44px;">' +
+      '<h2 style="margin:0;font-size:30px;line-height:1.25;font-weight:800;color:#2A2118;">Welcome home.</h2>' +
+      '<p style="margin:16px 0 0 0;font-size:17px;line-height:1.5;color:#5B4B3B;">Housing, work, and support for people coming home from incarceration — and the people who love them. Free, private, and ready when you are.</p>' +
+      '</div>' +
+      '<div style="flex:1 1 auto;min-height:20px;"></div>' +
+      '<div style="display:flex;flex-direction:column;gap:14px;">' +
+      '<button data-action="goFindResources" style="height:64px;border-radius:16px;border:none;background:#1C566E;color:#FFFFFF;font-size:18px;font-weight:700;cursor:pointer;">Find Resources</button>' +
+      '<button data-action="goPrograms" style="text-align:left;display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px;border:1px solid #C5D9DF;background:#E1ECEF;cursor:pointer;">' +
+      '<span style="width:44px;height:44px;border-radius:12px;background:#FFFFFF;display:flex;align-items:center;justify-content:center;color:#1C566E;flex-shrink:0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="7.5" r="3"/><path d="M2.5 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="18" cy="9" r="2.2"/><path d="M14.7 20c.3-2.7 2.2-4.8 4.8-5"/></svg></span>' +
+      '<span style="flex:1;"><span style="display:block;font-size:16px;font-weight:700;color:#1C566E;">Want hands-on help from Turn90?</span>' +
+      '<span style="display:block;font-size:13px;color:#2A2118;margin-top:2px;line-height:1.35;">Learn about First Shift and Reentry Navigation, our programs for men coming home.</span></span>' +
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1C566E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M9 6l6 6-6 6"/></svg>' +
+      '</button>' +
+      '<button data-action="goSaved" style="height:64px;border-radius:16px;border:2px solid #1C566E;background:#FFFFFF;color:#1C566E;font-size:18px;font-weight:700;cursor:pointer;">Saved Resources</button>' +
+      '<a href="tel:+18432974980,,,,1" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;border:1px solid #E7DDCE;background:#FFFFFF;text-decoration:none;">' +
+      '<span style="width:44px;height:44px;border-radius:12px;background:#E1ECEF;display:flex;align-items:center;justify-content:center;color:#1C566E;flex-shrink:0;">' + CALL_ICON.replace('width="17" height="17"', 'width="20" height="20"') + '</span>' +
+      '<span style="flex:1;"><span style="display:block;font-size:16px;font-weight:700;color:#2A2118;">Call Turn90</span>' +
+      '<span style="display:block;font-size:13px;color:#8A7A68;margin-top:2px;line-height:1.35;">Talk to someone, or tell us about a resource — (843) 297-4980 ext. 1</span></span>' +
+      '</a>' +
+      '</div>' +
+      '<p style="margin:20px 0 0 0;text-align:center;font-size:13px;color:#8A7A68;">No sign-in. No cost. Just help.</p>' +
+      '<p style="margin:8px 0 0 0;text-align:center;font-size:12px;line-height:1.45;color:#8A7A68;">We check every resource here and do our best to keep it up to date — but we\'re not perfect. Let us know if something\'s changed.</p>' +
+      (formatUpdated(DATA_UPDATED) ? '<p style="margin:6px 0 0 0;text-align:center;font-size:12px;font-weight:700;color:#8A7A68;">Resource list last updated ' + formatUpdated(DATA_UPDATED) + '</p>' : '') +
+      '</div>'
+    );
+  }
+
+  function renderPrograms() {
+    return (
+      '<div style="padding:20px 20px 32px 20px;">' +
+      '<p style="margin:0 0 18px 0;font-size:15px;line-height:1.55;color:#5B4B3B;">Turn90 offers two programs for men coming home from incarceration. You don\'t have to join one to use the Resource Guide.</p>' +
+      '<div style="background:#FFFFFF;border:1px solid #E7DDCE;border-radius:16px;padding:18px;margin-bottom:16px;">' +
+      '<h3 style="margin:0;font-size:20px;font-weight:800;color:#2A2118;">First Shift</h3>' +
+      '<span style="display:inline-block;margin-top:8px;padding:3px 10px;border-radius:999px;background:#E1ECEF;color:#1C566E;font-size:12px;font-weight:700;">8 weeks · Full-time · Paid</span>' +
+      '<p style="margin:12px 0 0 0;font-size:15px;line-height:1.55;color:#5B4B3B;">A pathway to a career, not just a job. You come in Monday to Friday, 9 AM to 3 PM, and earn a weekly stipend of up to $450 while you\'re in the program.</p>' +
+      '<p style="margin:14px 0 6px 0;font-size:13px;font-weight:700;color:#2A2118;">What you get</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• Real certifications, like OSHA-10 and forklift</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• Introductions to employers who hire, and someone speaking up for you</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• Skills for staying on the job, like communication and handling conflict</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• One-on-one case management for ID, transportation, housing, and more</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• Support for 90 days after you start work</p>' +
+      '<p style="margin:14px 0 6px 0;font-size:13px;font-weight:700;color:#2A2118;">Might be a good fit if</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• You\'re a man 18 or older coming home from incarceration</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• You can come in Monday to Friday, 9 AM to 3 PM, for 8 weeks</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• You\'re able to take part every day</p>' +
+      '<p style="margin:14px 0 6px 0;font-size:13px;font-weight:700;color:#2A2118;">Where</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• Charleston, Columbia, and Spartanburg</p>' +
+      '<p style="margin:14px 0 0 0;font-size:14px;line-height:1.5;color:#2A2118;font-weight:700;">Not sure if you qualify? Call anyway.</p>' +
+      '</div>' +
+      '<div style="background:#FFFFFF;border:1px solid #E7DDCE;border-radius:16px;padding:18px;margin-bottom:16px;">' +
+      '<h3 style="margin:0;font-size:20px;font-weight:800;color:#2A2118;">Reentry Navigation</h3>' +
+      '<span style="display:inline-block;margin-top:8px;padding:3px 10px;border-radius:999px;background:#E1ECEF;color:#1C566E;font-size:12px;font-weight:700;">Free · All by phone</span>' +
+      '<p style="margin:12px 0 0 0;font-size:15px;line-height:1.55;color:#5B4B3B;">One-on-one help over the phone, at no cost, with the practical things that come up after release.</p>' +
+      '<p style="margin:14px 0 6px 0;font-size:13px;font-weight:700;color:#2A2118;">We can help with</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• Finding housing</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• Making a resume</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• Finding a job</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• Child support</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• Getting your driver\'s license back</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• And more</p>' +
+      '<p style="margin:14px 0 6px 0;font-size:13px;font-weight:700;color:#2A2118;">Who it\'s for</p>' +
+      '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.45;">• Any man released from prison within the last 3 years</p>' +
+      '</div>' +
+      '<a href="' + TURN90_TEL + '" style="display:flex;align-items:center;justify-content:center;gap:10px;height:56px;background:#1C566E;color:#FFFFFF;border-radius:14px;text-decoration:none;font-weight:700;font-size:17px;">' + CALL_ICON.replace('width="17" height="17"', 'width="20" height="20"') + '<span>Call (843) 297-4980 ext. 1</span></a>' +
+      '<p style="margin:10px 0 0 0;text-align:center;font-size:13px;color:#8A7A68;line-height:1.4;">Tell us which program you\'re interested in.</p>' +
+      '<div style="margin-top:28px;padding-top:20px;border-top:1px solid #E7DDCE;text-align:center;">' +
+      '<p style="margin:0 0 12px 0;font-size:14px;color:#5B4B3B;line-height:1.5;">Looking for something else? The Resource Guide has housing, jobs, health care, and more, for everyone.</p>' +
+      '<button data-action="goFindResources" style="height:52px;padding:0 28px;border-radius:14px;border:2px solid #1C566E;background:#FFFFFF;color:#1C566E;font-size:16px;font-weight:700;cursor:pointer;">Find Resources</button>' +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  function renderCounty() {
+    var errorHtml = state.zipError
+      ? '<p style="margin:0 0 8px 0;font-size:13px;color:#B3261E;line-height:1.4;">' + esc(state.zipError) + '</p>'
+      : "";
+    var pathsHtml = COUNTY_PATH_DATA.map(function (c) {
+      return '<path d="' + c.d + '" fill="#1C566E" stroke="#FFFFFF" stroke-width="1.2" role="button" tabindex="0" aria-label="' + esc(c.name) + ' County" data-action="pickCounty" data-county="' + esc(c.name) + '" style="cursor:pointer;"></path>';
+    }).join("");
+    return (
+      '<div style="padding:20px 20px 32px 20px;">' +
+      '<p style="margin:0 0 18px 0;font-size:15px;color:#5B4B3B;">Type your ZIP code, or tap your county on the map.</p>' +
+      '<label for="turn90-zip" style="display:block;font-size:13px;font-weight:700;color:#2A2118;margin-bottom:6px;">ZIP code</label>' +
+      '<div style="display:flex;gap:10px;margin-bottom:8px;">' +
+      '<input id="turn90-zip" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="29401" value="' + esc(state.zipValue) + '" data-role="zip-input" style="flex:1;height:56px;border-radius:14px;border:1px solid #E7DDCE;background:#FFFFFF;padding:0 16px;font-size:18px;color:#2A2118;font-family:inherit;">' +
+      '<button data-action="submitZip" style="width:72px;height:56px;border-radius:14px;border:none;background:#1C566E;color:#FFFFFF;font-size:15px;font-weight:700;cursor:pointer;">Go</button>' +
+      '</div>' +
+      errorHtml +
+      '<div style="display:flex;align-items:center;gap:16px;margin:24px 0 14px 0;"><div style="flex:1;height:1px;background:#E7DDCE;"></div><span style="font-size:13px;color:#8A7A68;">or tap your county</span><div style="flex:1;height:1px;background:#E7DDCE;"></div></div>' +
+      '<div style="background:#FFFFFF;border:1px solid #E7DDCE;border-radius:16px;padding:12px;display:flex;justify-content:center;"><svg viewBox="0 0 340 269.5" width="100%" style="max-width:340px;">' + pathsHtml + '</svg></div>' +
+      '</div>'
+    );
+  }
+
+  var CATEGORY_TILES = [
+    { key: "Housing", label: "Housing", sub: "A place to stay", icon: '<path d="M4 11L12 4L20 11"/><path d="M6 10V19C6 19.5523 6.44772 20 7 20H17C17.5523 20 18 19.5523 18 19V10"/><path d="M10 20V15H14V20"/>' },
+    { key: "Jobs & Job Training", label: "Jobs &amp; Job Training", sub: "Work and job training", icon: '<rect x="3" y="7.5" width="18" height="12" rx="2"/><path d="M8 7.5V6C8 4.89543 8.89543 4 10 4H14C15.1046 4 16 4.89543 16 6V7.5"/><path d="M3 12.5H21"/>' },
+    { key: "Education & GED", label: "Education &amp; GED", sub: "Classes and your GED", icon: '<path d="M2 9l10-5 10 5-10 5-10-5z"/><path d="M6 11.5V17c0 1.5 2.7 3 6 3s6-1.5 6-3v-5.5"/><path d="M22 9v6"/>' },
+    { key: "Healthcare", label: "Healthcare", sub: "Doctors and medical care", icon: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>' },
+    { key: "Mental Health & Recovery", label: "Mental Health &amp; Recovery", sub: "Someone to talk to", icon: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/>' },
+    { key: "Legal Help & ID", label: "Legal Help &amp; ID", sub: "Legal help and ID", icon: '<path d="M12 3v18"/><path d="M5 6.5h14"/><path d="M8 21h8"/><path d="M5 6.5l-3.2 6.2a3.2 3.2 0 0 0 6.4 0z"/><path d="M19 6.5l-3.2 6.2a3.2 3.2 0 0 0 6.4 0z"/>' },
+    { key: "Food, Money & Basic Needs", label: "Food, Money &amp; Basic Needs", sub: "Food, cash help, clothes", icon: '<path d="M6 8h12l-1.3 12.1a1 1 0 0 1-1 .9H8.3a1 1 0 0 1-1-.9L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>' },
+    { key: "Family & Parenting", label: "Family &amp; Parenting", sub: "Child support and parenting", icon: '<circle cx="8.5" cy="7.5" r="3"/><path d="M2.5 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="18" cy="9" r="2.2"/><path d="M14.7 20c.3-2.7 2.2-4.8 4.8-5"/>' },
+    { key: "Transportation", label: "Transportation", sub: "Rides and bus passes", icon: '<rect x="3" y="5" width="18" height="12" rx="2.5"/><path d="M3 11.5h18"/><path d="M7 5V3M17 5V3"/><circle cx="7.5" cy="19" r="1.6"/><circle cx="16.5" cy="19" r="1.6"/>' },
+    { key: "General Reentry Support", label: "General Reentry Support", sub: "General support", icon: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5 5-2z"/>' }
+  ];
+
+  function renderCategory() {
+    var ctx = state.county ? (state.county + " County") : "";
+    var tiles = CATEGORY_TILES.map(function (t) {
+      return '<button data-action="pickCategory" data-category="' + esc(t.key) + '" style="text-align:left;display:flex;flex-direction:column;gap:10px;padding:16px 14px;border-radius:16px;border:1px solid #E7DDCE;background:#FFFFFF;cursor:pointer;">' +
+        '<span style="width:44px;height:44px;border-radius:12px;background:#E1ECEF;display:flex;align-items:center;justify-content:center;color:#1C566E;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + t.icon + '</svg></span>' +
+        '<span><span style="display:block;font-size:15px;font-weight:700;color:#2A2118;line-height:1.25;">' + t.label + '</span>' +
+        '<span style="display:block;font-size:12.5px;color:#8A7A68;margin-top:3px;line-height:1.3;">' + t.sub + '</span></span></button>';
+    }).join("");
+    return (
+      '<div style="padding:20px 20px 28px 20px;">' +
+      '<p style="margin:0 0 6px 0;font-size:14px;font-weight:700;color:#1C566E;text-transform:uppercase;letter-spacing:0.04em;">' + esc(ctx) + '</p>' +
+      '<p style="margin:0 0 18px 0;font-size:15px;color:#5B4B3B;">What kind of help do you need?</p>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' + tiles + '</div>' +
+      '</div>'
+    );
+  }
+
+  function segStyle(active) {
+    return active
+      ? "background:#1C566E;color:#FFFFFF;border:1px solid #1C566E;"
+      : "background:#FFFFFF;color:#2A2118;border:1px solid #E7DDCE;";
+  }
+
+  function renderFilterBar(listData) {
+    if (!listData.showFilterBar) { return ""; }
+    var activeCount = (state.filterGender ? 1 : 0) + (state.filterAge ? 1 : 0) + (state.filterHideSexOffense ? 1 : 0);
+    var hasActive = activeCount > 0;
+    var badge = hasActive
+      ? '<span style="margin-left:4px;display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#1C566E;color:#FFFFFF;font-size:12px;font-weight:700;">' + activeCount + "</span>"
+      : "";
+    var panel = "";
+    if (state.showFilters) {
+      var checkBg = state.filterHideSexOffense ? "#1C566E" : "#FFFFFF";
+      var checkBorder = state.filterHideSexOffense ? "#1C566E" : "#E7DDCE";
+      var checkMark = state.filterHideSexOffense
+        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 18 20 6"/></svg>'
+        : "";
+      var clearBtn = hasActive
+        ? '<button data-action="clearFilters" style="margin-top:12px;width:100%;height:40px;border-radius:10px;border:1px solid #E7DDCE;background:#FBF6EE;color:#1C566E;font-size:13px;font-weight:700;cursor:pointer;">Clear Filters</button>'
+        : "";
+      panel =
+        '<div style="margin-top:10px;padding:16px;border-radius:14px;border:1px solid #E7DDCE;background:#FFFFFF;">' +
+        '<p style="margin:0 0 8px 0;font-size:13px;font-weight:700;color:#2A2118;">Who is this for?</p>' +
+        '<div style="display:flex;gap:8px;margin-bottom:16px;">' +
+        '<button data-action="setGenderFilter" data-value="" style="flex:1;padding:9px 0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;' + segStyle(!state.filterGender) + '">Anyone</button>' +
+        '<button data-action="setGenderFilter" data-value="male" style="flex:1;padding:9px 0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;' + segStyle(state.filterGender === "male") + '">Men</button>' +
+        '<button data-action="setGenderFilter" data-value="female" style="flex:1;padding:9px 0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;' + segStyle(state.filterGender === "female") + '">Women</button>' +
+        '</div>' +
+        '<p style="margin:0 0 8px 0;font-size:13px;font-weight:700;color:#2A2118;">Age</p>' +
+        '<div style="display:flex;gap:8px;margin-bottom:16px;">' +
+        '<button data-action="setAgeFilter" data-value="" style="flex:1;padding:9px 0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;' + segStyle(!state.filterAge) + '">Any age</button>' +
+        '<button data-action="setAgeFilter" data-value="adults" style="flex:1;padding:9px 0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;' + segStyle(state.filterAge === "adults") + '">18 and up</button>' +
+        '<button data-action="setAgeFilter" data-value="young_adults" style="flex:1;padding:9px 0;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;' + segStyle(state.filterAge === "young_adults") + '">18–24</button>' +
+        '</div>' +
+        '<button data-action="toggleHideSexOffense" style="width:100%;box-sizing:border-box;display:flex;align-items:center;gap:12px;padding:8px 2px;border:none;background:none;cursor:pointer;text-align:left;">' +
+        '<span style="width:22px;height:22px;flex-shrink:0;border-radius:6px;border:2px solid ' + checkBorder + ';background:' + checkBg + ';display:flex;align-items:center;justify-content:center;">' + checkMark + '</span>' +
+        '<span style="font-size:14px;color:#2A2118;line-height:1.35;">Only show places open to sex-offense convictions</span>' +
+        '</button>' +
+        clearBtn +
+        '</div>';
+    }
+    return (
+      '<div style="padding:0 16px 16px 16px;">' +
+      '<button data-action="toggleFilters" style="box-sizing:border-box;width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid #E7DDCE;background:#FFFFFF;cursor:pointer;">' +
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C566E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16l-6.5 7.5V18l-3 1.5v-7L4 5z"/></svg>' +
+      '<span style="font-size:14px;font-weight:700;color:#2A2118;">' + (state.showFilters ? "Hide Filters" : "Filters") + '</span>' + badge +
+      '</button>' + panel + '</div>'
+    );
+  }
+
+  function renderList() {
+    var listData = computeListData();
+    var listContext = state.county ? ("In " + state.county + " County") : "";
+    var out = '<div style="padding:16px 0 24px 0;">';
+    out += '<p style="margin:4px 16px 16px 16px;font-size:14px;font-weight:700;color:#1C566E;text-transform:uppercase;letter-spacing:0.04em;">' + esc(listContext) + '</p>';
+    out += renderFilterBar(listData);
+    if (listData.isEmpty) {
+      var btn = listData.emptyIsFilterCause
+        ? '<button data-action="clearFilters" style="height:56px;padding:0 28px;border-radius:14px;border:none;background:#1C566E;color:#FFFFFF;font-size:16px;font-weight:700;cursor:pointer;">Clear Filters</button>'
+        : '<button data-action="backToCategory" style="height:56px;padding:0 28px;border-radius:14px;border:none;background:#1C566E;color:#FFFFFF;font-size:16px;font-weight:700;cursor:pointer;">Try Another Category</button>';
+      out += '<div style="padding:8px 28px 32px 28px;text-align:center;"><p style="margin:0 0 20px 0;font-size:16px;line-height:1.5;color:#5B4B3B;">' + esc(listData.emptyMessage) + '</p>' + btn + '</div>';
+    }
+    out += listData.items.map(renderCardHtml).join("");
+    out += '</div>';
+    return out;
+  }
+
+  function renderDetail() {
+    var d = computeDetail();
+    if (!d) { return '<div style="padding:40px 28px;text-align:center;"><p style="font-size:16px;color:#5B4B3B;">We couldn\'t find that resource.</p></div>'; }
+    var out = '<div style="padding:24px 20px 32px 20px;">';
+    out += '<p style="margin:0 0 6px 0;font-size:13px;font-weight:700;color:#1C566E;text-transform:uppercase;letter-spacing:0.04em;">' + esc(d.categoryLabel) + ' · ' + esc(d.countyLabel) + '</p>';
+    out += '<h2 style="margin:0 0 12px 0;font-size:24px;line-height:1.3;font-weight:800;color:#2A2118;">' + esc(d.name) + '</h2>';
+    if (d.hasCost) {
+      out += '<span style="display:inline-block;margin-bottom:14px;padding:4px 12px;border-radius:999px;background:#E1ECEF;color:#1C566E;font-size:13px;font-weight:700;">' + esc(d.costLabel) + '</span>';
+    }
+    out += '<p style="margin:0 0 24px 0;font-size:15px;line-height:1.55;color:#5B4B3B;">' + esc(d.description) + '</p>';
+    if (d.refers) {
+      out += '<div style="margin:0 0 14px 0;padding:14px 16px;border-radius:12px;background:#E1ECEF;border:1px solid #C5D9DF;"><p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#1C566E;">Referral through Turn90</p><p style="margin:0;font-size:14px;line-height:1.5;color:#2A2118;">This program takes referrals through Turn90 instead of directly from individuals. Call us and we will help get you connected.</p></div>';
+      out += '<a href="' + TURN90_TEL + '" style="display:flex;align-items:center;justify-content:center;gap:10px;height:56px;background:#1C566E;color:#FFFFFF;border-radius:14px;text-decoration:none;font-weight:700;font-size:17px;margin-bottom:20px;">' + CALL_ICON.replace('width="17" height="17"', 'width="20" height="20"') + '<span>Call (843) 297-4980 ext. 1</span></a>';
+    }
+    if (d.hasPhone) {
+      out += '<a href="' + esc(d.telHref) + '" style="display:flex;align-items:center;justify-content:center;gap:10px;height:56px;background:#1C566E;color:#FFFFFF;border-radius:14px;text-decoration:none;font-weight:700;font-size:17px;margin-bottom:12px;">' + CALL_ICON.replace('width="17" height="17"', 'width="20" height="20"') + '<span>Call ' + esc(d.phone) + '</span></a>';
+    }
+    if (d.hasWebsite) {
+      out += '<a href="' + esc(d.website) + '" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:10px;height:56px;background:#FFFFFF;color:#1C566E;border:2px solid #1C566E;border-radius:14px;text-decoration:none;font-weight:700;font-size:16px;margin-bottom:20px;"><span>Visit Website</span></a>';
+    }
+    if (d.hasAddress) {
+      out += '<div style="display:flex;align-items:flex-start;gap:10px;padding:14px 0;border-top:1px solid #E7DDCE;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A7A68" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span style="font-size:15px;color:#2A2118;line-height:1.5;">' + esc(d.address) + '</span></div>';
+    }
+    if (d.hasHours) {
+      out += '<div style="display:flex;align-items:center;gap:10px;padding:14px 0;border-top:1px solid #E7DDCE;">' + CLOCK_ICON.replace('width="15" height="15"', 'width="18" height="18"') + '<span style="font-size:15px;color:#2A2118;">' + esc(d.hours) + '</span></div>';
+    }
+    if (d.hasAccess) {
+      out += '<div style="padding:14px 0;border-top:1px solid #E7DDCE;"><p style="margin:0 0 8px 0;font-size:13px;font-weight:700;color:#2A2118;">How to Connect</p>' +
+        d.accessMethods.map(function (am) { return '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.4;">• ' + esc(am) + '</p>'; }).join("") + '</div>';
+    }
+    if (d.hasDocuments) {
+      out += '<div style="padding:14px 0;border-top:1px solid #E7DDCE;"><p style="margin:0 0 8px 0;font-size:13px;font-weight:700;color:#2A2118;">What to Bring</p>' +
+        d.documents.map(function (doc) { return '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.4;">• ' + esc(doc) + '</p>'; }).join("") + '</div>';
+    }
+    if (d.hasEligibility) {
+      out += '<div style="padding:14px 0;border-top:1px solid #E7DDCE;"><p style="margin:0 0 8px 0;font-size:13px;font-weight:700;color:#2A2118;">Good to Know</p>' +
+        d.eligibilityNotes.map(function (note) { return '<p style="margin:0 0 4px 0;font-size:14px;color:#5B4B3B;line-height:1.4;">• ' + esc(note) + '</p>'; }).join("") + '</div>';
+    }
+    var saveBg = d.saved ? "#E4EEE2" : "#1C566E";
+    var saveColor = d.saved ? "#2F4A34" : "#FFFFFF";
+    var saveBorder = d.saved ? "1px solid #B9D2BC" : "1px solid #1C566E";
+    var saveLabel = d.saved ? "Saved — tap to remove" : "Save this resource";
+    out += '<button data-action="toggleSave" data-id="' + esc(d.id) + '" style="width:100%;height:56px;border-radius:14px;margin-top:24px;font-size:16px;font-weight:700;cursor:pointer;background:' + saveBg + ';color:' + saveColor + ';border:' + saveBorder + ';">' + saveLabel + '</button>';
+    out += '</div>';
+    return out;
+  }
+
+  function renderSaved() {
+    var groups = computeSavedGroups();
+    var out = '<div style="padding:16px 0 24px 0;">';
+    if (groups.length === 0) {
+      out += '<div style="padding:40px 28px;text-align:center;"><p style="margin:0 0 20px 0;font-size:16px;line-height:1.5;color:#5B4B3B;">You haven\'t saved anything yet. When you find a resource you want to keep, tap the bookmark icon to add it here.</p><button data-action="goFindResources" style="height:56px;padding:0 28px;border-radius:14px;border:none;background:#1C566E;color:#FFFFFF;font-size:16px;font-weight:700;cursor:pointer;">Find Resources</button></div>';
+    }
+    groups.forEach(function (group) {
+      out += '<p style="margin:20px 16px 10px 16px;font-size:15px;font-weight:700;color:#2A2118;">' + esc(group.label) + '</p>';
+      out += group.items.map(renderCardHtml).join("");
+    });
+    out += '</div>';
+    return out;
+  }
+
+  function renderLoading() {
+    return '<div style="padding:60px 28px;text-align:center;"><p style="font-size:16px;color:#5B4B3B;">Loading resources…</p></div>';
+  }
+
+  function renderLoadError() {
+    return '<div style="padding:60px 28px;text-align:center;"><p style="margin:0 0 12px 0;font-size:16px;line-height:1.5;color:#5B4B3B;">We couldn\'t load the resource list. Please check your connection and reload the page.</p><button data-action="reloadData" style="height:48px;padding:0 24px;border-radius:12px;border:none;background:#1C566E;color:#FFFFFF;font-size:15px;font-weight:700;cursor:pointer;">Try Again</button></div>';
+  }
+
+  var SCREEN_TITLES = {
+    county: "Pick a County",
+    category: "Find Resources",
+    detail: "Resource Details",
+    saved: "Saved Resources",
+    programs: "Turn90 Programs"
+  };
+
+  function render() {
+    var contentEl = document.getElementById("content");
+    var topbarEl = document.getElementById("topbar");
+
+    if (state.dataStatus === "loading") {
+      contentEl.innerHTML = renderLoading();
+      topbarEl.hidden = true;
+      return;
+    }
+    if (state.dataStatus === "error") {
+      contentEl.innerHTML = renderLoadError();
+      topbarEl.hidden = true;
+      return;
+    }
+
+    var showTopBar = state.screen !== "landing";
+    topbarEl.hidden = !showTopBar;
+    if (showTopBar) {
+      var title = state.screen === "list" ? (state.category || "") : (SCREEN_TITLES[state.screen] || "");
+      topbarEl.innerHTML =
+        '<button aria-label="Go back" data-action="back" style="width:44px;height:44px;flex-shrink:0;border-radius:12px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;">' +
+        '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 18L9 12L15 6" stroke="#2A2118" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+        '<h1 style="margin:0;font-size:19px;font-weight:700;color:#2A2118;">' + esc(title) + '</h1>';
+    }
+
+    var html;
+    switch (state.screen) {
+      case "county": html = renderCounty(); break;
+      case "category": html = renderCategory(); break;
+      case "list": html = renderList(); break;
+      case "detail": html = renderDetail(); break;
+      case "saved": html = renderSaved(); break;
+      case "programs": html = renderPrograms(); break;
+      default: html = renderLanding();
+    }
+    contentEl.innerHTML = html;
+    restoreZipFocus();
+  }
+
+  // ---------------------------------------------------------------------
+  // ZIP input focus/cursor preservation across re-renders
+  // ---------------------------------------------------------------------
+  var zipHadFocus = false;
+  function restoreZipFocus() {
+    if (!zipHadFocus) { return; }
+    var el = document.getElementById("turn90-zip");
+    if (el) {
+      el.focus();
+      var pos = el.value.length;
+      try { el.setSelectionRange(pos, pos); } catch (e) {}
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Event delegation
+  // ---------------------------------------------------------------------
+  document.addEventListener("click", function (e) {
+    var el = e.target.closest("[data-action]");
+    if (!el) { return; }
+    var action = el.getAttribute("data-action");
+    switch (action) {
+      case "goFindResources": goFindResources(); break;
+      case "goSaved": goSaved(); break;
+      case "goPrograms": goPrograms(); break;
+      case "back": back(); break;
+      case "backToCategory": backToCategory(); break;
+      case "pickCounty": goToCounty(el.getAttribute("data-county")); break;
+      case "submitZip": submitZip(); break;
+      case "pickCategory": selectCategory(el.getAttribute("data-category")); break;
+      case "openDetail": openDetail(el.getAttribute("data-id"), el.getAttribute("data-from")); break;
+      case "toggleSave": e.stopPropagation(); toggleSave(el.getAttribute("data-id")); break;
+      case "toggleFilters": toggleFilterPanel(); break;
+      case "setGenderFilter": setGenderFilter(el.getAttribute("data-value") || null); break;
+      case "setAgeFilter": setAgeFilter(el.getAttribute("data-value") || null); break;
+      case "toggleHideSexOffense": toggleSexOffenseFilter(); break;
+      case "clearFilters": clearFilters(); break;
+      case "reloadData": loadResources(); break;
+    }
+  });
+
+  document.addEventListener("input", function (e) {
+    if (e.target && e.target.getAttribute("data-role") === "zip-input") {
+      zipHadFocus = true;
+      var v = String(e.target.value || "").replace(/[^0-9]/g, "").slice(0, 5);
+      state.zipValue = v;
+      state.zipError = null;
+      render();
+    }
+  });
+
+  document.addEventListener("focusout", function (e) {
+    if (e.target && e.target.getAttribute && e.target.getAttribute("data-role") === "zip-input") {
+      zipHadFocus = false;
+    }
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.target && e.target.getAttribute && e.target.getAttribute("data-role") === "zip-input" && e.key === "Enter") {
+      submitZip();
+    }
+  });
+
+  // ---------------------------------------------------------------------
+  // Boot
+  // ---------------------------------------------------------------------
+  function loadResources() {
+    state.dataStatus = "loading";
+    render();
+    fetch("./resources.json", { cache: "no-store" })
+      .then(function (resp) {
+        if (!resp.ok) { throw new Error("HTTP " + resp.status); }
+        return resp.json();
+      })
+      .then(function (data) {
+        if (Array.isArray(data)) { ALL_RESOURCES = data; DATA_UPDATED = null; }
+        else { ALL_RESOURCES = (data && data.resources) || []; DATA_UPDATED = (data && data.updated) || null; }
+        state.dataStatus = "ready";
+        render();
+      })
+      .catch(function (err) {
+        state.dataStatus = "error";
+        render();
+      });
+  }
+
+  state.savedIds = loadSavedIds();
+  loadResources();
+})();
+</script>
+</body>
+</html>
